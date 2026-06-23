@@ -4,7 +4,6 @@
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "esp_mac.h"
-#include "nvs_flash.h"
 #include "esp_netif.h"
 #include <string.h>
 #include <stdio.h>
@@ -31,6 +30,13 @@ static bool     s_5ghz_enabled = false;
 static uint32_t s_tx_count     = 0;
 static uint32_t s_rx_count     = 0;
 static uint8_t  s_channel      = 1;
+
+static wifi_attack_frame_hook_t s_frame_hook = NULL;
+
+void wifi_attack_set_frame_hook(wifi_attack_frame_hook_t hook)
+{
+    s_frame_hook = hook;
+}
 
 /* ── 802.11 beacon frame template (ported from Marauder WiFiScan.h) ── */
 /* FC=0x80 (beacon), Dur=0, DA=bcast, SA=placeholder, BSSID=placeholder */
@@ -119,13 +125,6 @@ esp_err_t wifi_attack_init(void)
 {
     if (s_initialized) return ESP_OK;
 
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
-
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
@@ -176,13 +175,9 @@ esp_err_t wifi_attack_stop_promiscuous(void)
 
 esp_err_t wifi_attack_set_channel(uint8_t ch)
 {
-    esp_err_t ret;
-    if (ch > 14) {
-        /* 5 GHz — set secondary channel to none */
-        ret = esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
-    } else {
-        ret = esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
-    }
+    /* 2.4 GHz channels 1–13 support HT40; above/below depends on channel.
+     * For attack use, secondary=NONE keeps us on the exact channel requested. */
+    esp_err_t ret = esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
     if (ret == ESP_OK) s_channel = ch;
     return ret;
 }
@@ -352,6 +347,8 @@ void wifi_attack_beacon_sniffer_cb(void *buf, wifi_promiscuous_pkt_type_t type)
            channel, rssi,
            bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5],
            ssid);
+
+    if (s_frame_hook) s_frame_hook(channel, rssi);
 }
 
 void wifi_attack_ap_sniffer_cb(void *buf, wifi_promiscuous_pkt_type_t type)

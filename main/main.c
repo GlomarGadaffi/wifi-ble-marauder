@@ -16,14 +16,15 @@
   #include "board_c6.h"
 #elif defined(CONFIG_BOARD_S3_GUITION) || defined(BOARD_S3_GUITION)
   #include "board_s3_guition.h"
+  #include "display.h"
+  #include "spectrum.h"
+  static bm_display_t s_display;
 #else
-  /* Fallback: generic headless ESP32-C5 DevKitC defaults */
   #include "board_c5.h"
 #endif
 
 static const char *TAG = "binary-mist";
 
-/* ── Watchdog / health task (core 1, low priority) ─────────────────── */
 static void health_task(void *arg)
 {
     while (1) {
@@ -36,13 +37,11 @@ static void health_task(void *arg)
     }
 }
 
-/* ── Entry point ────────────────────────────────────────────────────── */
 void app_main(void)
 {
     ESP_LOGI(TAG, "binary-mist starting on %s", BOARD_NAME);
     ESP_LOGI(TAG, "IDF version: %s", esp_get_idf_version());
 
-    /* NVS */
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -50,24 +49,22 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    /* 5 GHz capability log */
     if (wifi_attack_has_5ghz()) {
         ESP_LOGI(TAG, "5 GHz WiFi supported — dual-band attacks available");
     } else {
         ESP_LOGI(TAG, "2.4 GHz only");
     }
 
-    /* CLI (core 1, priority 5) — starts REPL, blocks internally */
+#if defined(CONFIG_BOARD_S3_GUITION) || defined(BOARD_S3_GUITION)
+    /* Phase 4: display + RSSI spectrum visualizer (core 1, priority 4).
+     * spectrum_task starts promiscuous scan and handles touch-dispatched attacks.
+     * The UART CLI still works in parallel on the same core via the REPL task. */
+    ESP_ERROR_CHECK(bm_display_init(&s_display));
+    xTaskCreatePinnedToCore(spectrum_task, "spectrum", 12288, &s_display, 4, NULL, 1);
+#endif
+
     cli_init();
     xTaskCreatePinnedToCore(cli_task, "cli", 8192, NULL, 5, NULL, 1);
 
-    /* Health monitor (core 1, low priority) */
     xTaskCreatePinnedToCore(health_task, "health", 2048, NULL, 2, NULL, 1);
-
-    /* WiFi and BLE attack tasks are spawned on-demand from CLI commands.
-     * For automated attack loops, pin to core 0:
-     *
-     *   xTaskCreatePinnedToCore(wifi_attack_loop, "wifi_atk", 8192, NULL, 20, NULL, 0);
-     *   xTaskCreatePinnedToCore(ble_attack_loop,  "ble_atk",  4096, NULL, 19, NULL, 0);
-     */
 }
