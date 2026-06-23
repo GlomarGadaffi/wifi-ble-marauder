@@ -77,9 +77,9 @@ static int scan_event_cb(struct ble_gap_event *event, void *arg)
 
     memcpy(dev.addr, event->disc.addr.val, 6);
 
-    if (event->disc.data_len > 0 && event->disc.data_len <= (int)sizeof(dev.payload)) {
-        memcpy(dev.payload, event->disc.data, event->disc.data_len);
-        dev.payload_len = event->disc.data_len;
+    if (event->disc.length_data > 0 && event->disc.length_data <= sizeof(dev.payload)) {
+        memcpy(dev.payload, event->disc.data, event->disc.length_data);
+        dev.payload_len = event->disc.length_data;
     }
 
     if (s_scan_cb) s_scan_cb(&dev);

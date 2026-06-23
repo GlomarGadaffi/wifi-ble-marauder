@@ -25,8 +25,8 @@ static const char *TAG = "spectrum";
 #define HDR_H       42
 #define CHART_Y     42
 #define CHART_H    200        /* usable bar height in pixels */
-#define LIST_Y     242
-#define LIST_H     158
+#define INFO_Y     242
+#define INFO_H     158
 #define BTN_Y      400
 #define BTN_H       80
 
@@ -55,9 +55,10 @@ typedef struct {
 
 static ch_state_t s_ch[SPECTRUM_CH24_COUNT];   /* index 0 → channel 1 */
 static ap_entry_t s_aps[AP_LIST_MAX];
-static int        s_ap_head = 0;              /* ring insert pointer */
-static uint8_t    s_active_ch = 6;           /* touch-selected channel */
-static bool       s_needs_redraw = true;      /* full redraw on first frame */
+static int        s_ap_head = 0;
+static uint8_t    s_active_ch = 6;
+
+static void ap_list_push(const char *ssid, uint8_t channel, int8_t rssi);
 
 /* ── Colour helpers ──────────────────────────────────────────────────── */
 static uint16_t bar_color(int8_t rssi)
@@ -83,12 +84,11 @@ void spectrum_update(uint8_t channel, int8_t rssi)
     int idx = channel - 1;
     if (rssi > s_ch[idx].peak_rssi) {
         s_ch[idx].peak_rssi = rssi;
+        ap_list_push("", channel, rssi);   /* log strongest hit per channel */
     }
     s_ch[idx].last_ms = (uint32_t)(esp_timer_get_time() / 1000);
 }
 
-/* Called after a beacon is parsed to add to AP list ring (not ISR, but
- * called from the wifi RX task — keep it fast). */
 static void ap_list_push(const char *ssid, uint8_t channel, int8_t rssi)
 {
     ap_entry_t *e = &s_aps[s_ap_head % AP_LIST_MAX];
@@ -167,19 +167,18 @@ static void render_chart(ui_t *ui, uint32_t now_ms)
     ui_text(ui, LCD_H_RES - 28, CHART_BOTTOM - 10, "-100", 1, ui_rgb(90, 90, 110));
 }
 
-static void render_ap_list(ui_t *ui)
+static void render_info_panel(ui_t *ui)
 {
-    ui_rect(ui, 0, LIST_Y, LCD_H_RES, LIST_H, ui_rgb(14, 17, 28));
-    ui_text(ui, 6, LIST_Y + 4, "Recent APs:", 1, ui_rgb(100, 110, 140));
+    ui_rect(ui, 0, INFO_Y, LCD_H_RES, INFO_H, ui_rgb(14, 17, 28));
+    ui_text(ui, 6, INFO_Y + 4, "Active signals:", 1, ui_rgb(100, 110, 140));
 
     int count = (s_ap_head < AP_LIST_MAX) ? s_ap_head : AP_LIST_MAX;
     for (int i = 0; i < count; i++) {
         int slot = (s_ap_head - 1 - i + AP_LIST_MAX * 2) % AP_LIST_MAX;
         ap_entry_t *e = &s_aps[slot];
-        char line[48];
-        snprintf(line, sizeof(line), "ch%2d %4ddBm %.20s",
-                 e->channel, e->rssi, e->ssid);
-        ui_text(ui, 6, LIST_Y + 16 + i * 22, line, 1, ui_rgb(180, 185, 200));
+        char line[32];
+        snprintf(line, sizeof(line), "ch%2d  %4d dBm", e->channel, e->rssi);
+        ui_text(ui, 6, INFO_Y + 18 + i * 22, line, 1, ui_rgb(180, 185, 200));
     }
 }
 
@@ -299,7 +298,7 @@ void spectrum_task(void *arg)
         /* Render */
         render_header(ui, "2.4 GHz RSSI spectrum");
         render_chart(ui, now_ms);
-        render_ap_list(ui);
+        render_info_panel(ui);
         render_action_bar(ui);
         ui_flush(ui);
 

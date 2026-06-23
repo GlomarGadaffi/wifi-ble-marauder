@@ -5,6 +5,7 @@
 #include "lwip/ip4_addr.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
+#include "lwip/sockets.h"
 #include "nvs_flash.h"
 #include <string.h>
 #include <stdio.h>

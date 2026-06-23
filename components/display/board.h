@@ -7,8 +7,6 @@
  */
 #pragma once
 
-#include "esp_adc/adc_oneshot.h"
-
 /* ---- Display: AXS15231B, 320x480 IPS, QSPI ---- */
 #define LCD_H_RES   320
 #define LCD_V_RES   480
@@ -42,6 +40,6 @@
 #define PIN_I2S_WS    2
 #define PIN_I2S_DOUT 41
 
-/* ---- Battery voltage: divider into ADC1 (GPIO5 == ADC1 channel 4) ---- */
-#define PIN_BAT_ADC_CHANNEL  ADC_CHANNEL_4
-#define BAT_DIVIDER_RATIO    2.0f   /* confirm against the board; assumed 1:2 */
+/* ---- Battery voltage: divider into ADC1 (GPIO5 == ADC1 ch4) ---- */
+#define PIN_BAT_ADC_GPIO     5
+#define BAT_DIVIDER_RATIO    2.0f
