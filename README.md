@@ -1,4 +1,4 @@
-# binary-mist
+# wifi-ble-marauder
 
 Pure ESP-IDF 6.0.1 WiFi/BLE security research tool. No Arduino. No wrappers.
 
@@ -6,7 +6,7 @@ Successor to [ESP32Marauder](https://github.com/justcallmekoko/ESP32Marauder) �
 
 ## What's new vs. Marauder
 
-| Capability | Marauder (Arduino) | binary-mist (IDF 6.0.1) |
+| Capability | Marauder (Arduino) | wifi-ble-marauder (IDF 6.0.1) |
 |---|---|---|
 | 5 GHz deauth + beacon spam | ✗ | ✓ ESP32-C5 |
 | WiFi 6 (802.11ax) frame crafting | ✗ | ✓ C5/C6 |
@@ -23,10 +23,10 @@ Successor to [ESP32Marauder](https://github.com/justcallmekoko/ESP32Marauder) �
 ## Hardware targets
 
 ### Active — S3 + Guition display (Phase 4)
-**[Guition JC3248W535EN](https://github.com/GlomarGadaffi/stemmons-draftsman)**
+**[Guition JC3248W535EN](https://github.com/GlomarGadaffi/jc3248-display-driver)**
 - ESP32-S3, 240 MHz, 8 MB OPI PSRAM, 16 MB flash
 - AXS15231B QSPI 320×480 IPS display, FT5336 capacitive touch
-- Display driver: [stemmons-draftsman](https://github.com/GlomarGadaffi/stemmons-draftsman)
+- Display driver: [jc3248-display-driver](https://github.com/GlomarGadaffi/jc3248-display-driver)
 
 ```bash
 idf.py --sdkconfig-defaults sdkconfig.defaults.s3_guition set-target esp32s3 build
@@ -37,7 +37,7 @@ On boot the display shows a live 2.4 GHz RSSI spectrum. Touch a channel bar to s
 
 ```
 ┌──────────────────────────────────────┐
-│ binary-mist   CH:6   2.4 GHz RSSI   │  header
+│ wifi-ble-marauder   CH:6   2.4 GHz RSSI   │  header
 ├──────────────────────────────────────┤
 │  ▁▃█▅▁▁▂▁▁▁▃▁▁                      │  channel bars 1–13
 │  1 2 3 4 5 6 7 8 9 10 11 12 13      │  tap to select
@@ -71,7 +71,7 @@ idf.py --sdkconfig-defaults sdkconfig.defaults.c6 set-target esp32c6 build flash
 ## Project structure
 
 ```
-binary-mist/
+wifi-ble-marauder/
 ├── main/main.c                    # app_main — board dispatch + task spawn
 ├── components/
 │   ├── wifi_attack/               # 802.11 frame inject/sniff (native esp_wifi)
@@ -79,7 +79,7 @@ binary-mist/
 │   ├── cli/                       # esp_console REPL (UART, all boards)
 │   ├── display/                   # S3 Guition: backlight, QSPI panel, I2C touch, framebuf
 │   ├── spectrum/                  # S3 Guition: RSSI spectrum task + touch dispatch
-│   ├── esp_lcd_axs15231b/         # AXS15231B QSPI + touch driver (from stemmons-draftsman)
+│   ├── esp_lcd_axs15231b/         # AXS15231B QSPI + touch driver (from jc3248-display-driver)
 │   ├── pcap/                      # SD-backed PCAP writer with radiotap
 │   ├── evil_portal/               # captive portal (esp_http_server + DNS)
 │   ├── gps/                       # NMEA UART parser
@@ -182,9 +182,9 @@ idf.py -p COM3 flash monitor
 
 ## Related projects
 
-- [stemmons-draftsman](https://github.com/GlomarGadaffi/stemmons-draftsman) — JC3248W535EN bring-up + display driver source
-- [mastic-scout](https://github.com/GlomarGadaffi/mastic-scout) — 802.11 attack detection sensor (complement: detects what this generates)
-- [ashburn-drifter](https://github.com/GlomarGadaffi/ashburn-drifter) — WiFi/BLE wardriver
+- [jc3248-display-driver](https://github.com/GlomarGadaffi/jc3248-display-driver) — JC3248W535EN bring-up + display driver source
+- [deauth-detector](https://github.com/GlomarGadaffi/deauth-detector) — 802.11 attack detection sensor (complement: detects what this generates)
+- [wigle-wardriver](https://github.com/GlomarGadaffi/wigle-wardriver) — WiFi/BLE wardriver
 
 ## License
 
