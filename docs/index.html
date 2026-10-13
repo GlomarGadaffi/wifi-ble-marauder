@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>wifi-ble-marauder: Pure ESP-IDF Multi-Band RF Security Suite</title>
+<meta name="description" content="Pure ESP-IDF 6.0.1 WiFi and BLE security research tool. 5 GHz deauth, WiFi 6 frame crafting, BLE 5.0 extended advertising, Thread/Matter intercept, and live touch spectrum.">
+<style>
+:root{
+  --bg:#fefefe;--face:#f4f4f4;--face-raised:#f0f0f0;--ink:#454545;--ink-dim:#777;--brass:#07a;--brass-hi:#07a;--brass-lo:#999;--line:#ddd;--alert:#c0392b;--ringing:#941352;--ok:#1a7f37;--warn:#b58900;
+  --mono:ui-monospace,"SF Mono","Cascadia Code","Consolas","Liberation Mono",monospace;--sans:"Open Sans",Arial,sans-serif;
+}
+html.inverted{
+  --bg:#000;--face:#111;--face-raised:#000;--ink:#d9d9d9;--ink-dim:#999;--brass:#00a2e7;--brass-hi:#00a2e7;--brass-lo:#555;--line:#333;--alert:#d24637;--ringing:#ca1a70;--ok:#5fd377;--warn:#e3b341;
+}
+html.contrast{
+  --ink:#050505;--ink-dim:#333;--brass:#03f;--brass-hi:#03f;--line:#bbb;--alert:#800;
+}
+html.inverted.contrast{
+  --ink:#fff;--ink-dim:#ccc;--brass:#44c7ff;--brass-hi:#44c7ff;--line:#666;--alert:#db695d;
+}
+html{background:var(--bg)}
+body{
+  font-family:var(--sans);color:var(--ink);background:var(--bg);font-size:15px;margin:2em auto;max-width:820px;padding:1em;line-height:1.55;hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word;
+}
+a{color:var(--brass);text-underline-offset:.15em}a:visited{color:var(--ringing)}
+h1{
+  font-family:var(--mono);font-weight:700;font-size:1.85em;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);line-height:1.2;margin-bottom:.2em;
+}
+h1 .dot{font-style:normal;color:var(--ink-dim)}
+h1 span{color:var(--ink-dim);font-weight:400;font-size:.55em;letter-spacing:.2em;margin-left:.6em;vertical-align:middle}
+h2{
+  font-family:var(--mono);font-weight:600;font-size:.85em;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);margin:2.4em 0 .8em;padding-bottom:.4em;border-bottom:1px solid var(--line);
+}
+h3{font-family:var(--mono);font-weight:600;font-size:.8em;letter-spacing:.08em;text-transform:uppercase;margin:1.4em 0 .4em;color:var(--ink)}
+p.st{margin-top:0;color:var(--ink-dim);font-style:italic}
+b{color:var(--ink)}
+code,pre{font-family:var(--mono);font-size:.9em}
+pre{overflow-x:auto;padding:.7em .9em;background:var(--face);border:1px solid var(--line);border-left:3px solid #ccc;border-radius:2px}
+pre code{color:var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:.92em;margin:1em 0}
+th{font-family:var(--mono);font-weight:600;font-size:.75em;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim)}
+th,td{text-align:left;padding:.45em .8em .45em 0;border-bottom:1px solid var(--line);vertical-align:top}
+figure.dg{margin:1.4em 0}figure.dg div{overflow-x:auto;text-align:center}figure.dg svg{display:inline-block;max-width:100%;height:auto}
+html.inverted figure.dg{filter:invert(.93) hue-rotate(180deg)}
+figcaption{font-family:var(--mono);font-size:.75em;color:var(--ink-dim);margin-top:.6em}
+small{font-size:.75em}
+.wr{color:var(--alert);font-weight:600}
+.ok-tag{color:var(--ok);font-weight:600}
+.warn-tag{color:var(--warn);font-weight:600}
+nav{font-family:var(--mono);font-size:.8em;letter-spacing:.04em;color:var(--ink-dim);margin-bottom:2em}
+.sw{position:fixed;top:1em;right:1em;display:flex;gap:4px;z-index:99}
+.sw button{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;background:var(--face);color:var(--ink);border:1px solid var(--line);padding:3px 7px;cursor:pointer;border-radius:2px}
+.sw button:hover{background:var(--face-raised)}
+.callout{background:var(--face);border:1px solid var(--line);border-left:4px solid var(--brass);padding:1em;margin:1.4em 0;border-radius:2px}
+.callout-alert{border-left-color:var(--alert)}
+.callout h4{font-family:var(--mono);margin:0 0 .5em;font-size:.82em;letter-spacing:.08em;text-transform:uppercase;color:var(--ink)}
+.tag-pill{display:inline-block;font-family:var(--mono);font-size:.7em;padding:1px 6px;border:1px solid var(--line);border-radius:2px;background:var(--face);color:var(--ink-dim)}
+
+/* Touch spectrum simulator styles */
+.spectrum-box{background:#111;color:#eee;border:1px solid #333;border-radius:4px;padding:1em;margin:1.5em 0;font-family:var(--mono)}
+.spectrum-bars{display:flex;gap:4px;align-items:flex-end;height:100px;background:#000;padding:10px;border:1px solid #222;margin:10px 0}
+.s-bar{flex:1;background:#07a;text-align:center;color:#fff;font-size:9px;cursor:pointer;transition:height .15s,background .15s}
+.s-bar:hover,.s-bar.active{background:#00a2e7;outline:1px solid #fff}
+.spectrum-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.spectrum-actions button{font-family:var(--mono);background:#222;color:#eee;border:1px solid #444;padding:6px 12px;font-size:.85em;cursor:pointer;border-radius:2px}
+.spectrum-actions button:hover{background:#333;border-color:#07a}
+.terminal-output{background:#050505;color:#81c995;border:1px solid #222;padding:8px;font-size:.82em;height:140px;overflow-y:auto;white-space:pre-wrap;margin-top:10px}
+</style>
+</head>
+<body>
+
+<div class="sw">
+  <button id="contrast" title="Toggle high contrast">CONTRAST</button>
+  <button id="invmode" title="Toggle dark mode">INVERT</button>
+</div>
+
+<nav>
+  <a href="https://github.com/GlomarGadaffi/wifi-ble-marauder">GitHub Repo</a> &middot;
+  <a href="../">glomar root</a> &middot;
+  <a href="../pocket-dial/">pocket-dial</a> &middot;
+  <a href="../ESP32_AdBlocker_Reborn/">ESP32 AdBlocker</a> &middot;
+  <a href="../bcd325-dashboard/">bcd325-dashboard</a> &middot;
+  <a href="../ble-sign-beacon/">ble-sign-beacon</a> &middot;
+  <a href="../deanon-demo/">deanon-demo</a> &middot;
+  <a href="../sentinel-node-demo/">sentinel-node-demo</a> &middot;
+  <a href="../ask-the-logs/">ask-the-logs</a>
+</nav>
+
+<header>
+  <h1>wifi<i class="dot">&middot;</i>ble<i class="dot">&middot;</i>marauder<span>idf-6.0.1</span></h1>
+  <p class="st">Pure ESP-IDF 6.0.1 WiFi and BLE security research tool. No Arduino. No wrappers. Rewritten from the ground up in C against the native IDF stack.</p>
+</header>
+
+<main>
+
+<div class="callout">
+  <h4>Beyond Arduino Limits: The Native IDF Paradigm</h4>
+  <p style="margin:0;font-size:.92em">
+    Legacy microcontroller tools (like Arduino Marauder) are constrained to a single thread, 2.4 GHz legacy radios, and 31-byte advertising payloads. <b>wifi-ble-marauder</b> rewrites the entire toolchain against native ESP-IDF 6.0.1, unlocking <b>5 GHz frame injection on ESP32-C5</b>, <b>WiFi 6 (802.11ax) frame crafting</b>, <b>Thread 1.3 / Matter intercept on ESP32-C6</b>, and <b>254-byte BLE 5.0 extended advertising</b>.
+  </p>
+</div>
+
+<h2>01 &middot; architectural comparison: native idf vs arduino</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Capability</th>
+      <th>Legacy Marauder (Arduino)</th>
+      <th>wifi-ble-marauder (Native IDF 6.0.1)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>5 GHz Deauth &amp; Beacon Spam</td>
+      <td>&cross; 2.4 GHz only</td>
+      <td><span class="ok-tag">&check; ESP32-C5 dual-band (2.4 + 5 GHz)</span></td>
+    </tr>
+    <tr>
+      <td>WiFi 6 (802.11ax) Frame Crafting</td>
+      <td>&cross; Not supported</td>
+      <td><span class="ok-tag">&check; Native C5 / C6 802.11ax</span></td>
+    </tr>
+    <tr>
+      <td>BLE 5.0 Extended Advertisements</td>
+      <td>&cross; 31-byte legacy limit</td>
+      <td><span class="ok-tag">&check; 254-byte payloads (C5/C6)</span></td>
+    </tr>
+    <tr>
+      <td>Thread 1.3 &amp; Matter Intercept</td>
+      <td>&cross; No 802.15.4 stack</td>
+      <td><span class="ok-tag">&check; Native OpenThread &amp; Zigbee (C6)</span></td>
+    </tr>
+    <tr>
+      <td>Live Touch Spectrum Display</td>
+      <td>&cross; Slow SPI / non-touch</td>
+      <td><span class="ok-tag">&check; Guition S3 QSPI IPS + Capacitive Touch</span></td>
+    </tr>
+    <tr>
+      <td>Task Concurrency &amp; Timing</td>
+      <td>Single Arduino <code>loop()</code></td>
+      <td><span class="ok-tag">&check; Core 0 Attack Engine &middot; Core 1 UI/REPL</span></td>
+    </tr>
+    <tr>
+      <td>EAPOL Capture Precision</td>
+      <td>Millisecond <code>millis()</code> jitter</td>
+      <td><span class="ok-tag">&check; Microsecond precision (esp_timer)</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>02 &middot; dual-core task isolation architecture</h2>
+<p>
+  By segregating high-throughput RF frame injection onto Core 0 and user interaction onto Core 1, frame injection timing never jitters during display rendering or UART REPL command processing:
+</p>
+
+<figure class="dg">
+  <div>
+    <svg viewBox="0 0 760 320" width="760" height="320" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#454545"/>
+        </marker>
+      </defs>
+      <rect x="10" y="10" width="740" height="300" fill="#fcfcfc" stroke="#ddd" stroke-width="1.5" rx="3"/>
+
+      <!-- Core 0 Column -->
+      <rect x="35" y="35" width="330" height="250" fill="#fff" stroke="#07a" stroke-width="1.5" rx="3"/>
+      <text x="50" y="60" font-family="ui-monospace, monospace" font-size="11" font-weight="700" fill="#07a">CORE 0: REAL-TIME ATTACK ENGINE</text>
+      <text x="50" y="78" font-family="ui-monospace, monospace" font-size="8.5" fill="#777">High-Priority RTOS Tasks &middot; Hard Real-Time Timing</text>
+
+      <rect x="50" y="95" width="300" height="36" fill="#f4f4f4" stroke="#bbb" rx="2"/>
+      <text x="60" y="117" font-family="ui-monospace, monospace" font-size="9.5" fill="#333">esp_wifi_80211_tx (5 GHz &amp; 2.4 GHz Injection)</text>
+
+      <rect x="50" y="140" width="300" height="36" fill="#f4f4f4" stroke="#bbb" rx="2"/>
+      <text x="60" y="162" font-family="ui-monospace, monospace" font-size="9.5" fill="#333">NimBLE Controller (Extended 254B Advertisements)</text>
+
+      <rect x="50" y="185" width="300" height="36" fill="#f4f4f4" stroke="#bbb" rx="2"/>
+      <text x="60" y="207" font-family="ui-monospace, monospace" font-size="9.5" fill="#333">OpenThread 1.3 / 802.15.4 Sniffer &amp; Injection</text>
+
+      <rect x="50" y="230" width="300" height="36" fill="#f4f4f4" stroke="#bbb" rx="2"/>
+      <text x="60" y="252" font-family="ui-monospace, monospace" font-size="9.5" fill="#333">&micro;s-precision esp_timer (Zero-Jitter EAPOL Handshakes)</text>
+
+      <!-- IPC Link -->
+      <line x1="365" y1="160" x2="395" y2="160" stroke="#454545" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Core 1 Column -->
+      <rect x="395" y="35" width="330" height="250" fill="#fff" stroke="#1a7f37" stroke-width="1.5" rx="3"/>
+      <text x="410" y="60" font-family="ui-monospace, monospace" font-size="11" font-weight="700" fill="#1a7f37">CORE 1: UI, REPL &amp; LOGGING</text>
+      <text x="410" y="78" font-family="ui-monospace, monospace" font-size="8.5" fill="#777">User Interface &amp; Non-Blocking Data Sinks</text>
+
+      <rect x="410" y="95" width="300" height="36" fill="#f4f4f4" stroke="#bbb" rx="2"/>
+      <text x="420" y="117" font-family="ui-monospace, monospace" font-size="9.5" fill="#333">AXS15231B QSPI 320x480 Display &amp; FT5336 Touch</text>
+
+      <rect x="410" y="140" width="300" height="36" fill="#f4f4f4" stroke="#bbb" rx="2"/>
+      <text x="420" y="162" font-family="ui-monospace, monospace" font-size="9.5" fill="#333">Live RSSI Channel Spectrum Analyzer Sweep</text>
+
+      <rect x="410" y="185" width="300" height="36" fill="#f4f4f4" stroke="#bbb" rx="2"/>
+      <text x="420" y="207" font-family="ui-monospace, monospace" font-size="9.5" fill="#333">esp_console REPL (UART CLI @ 115200 baud)</text>
+
+      <rect x="410" y="230" width="300" height="36" fill="#f4f4f4" stroke="#bbb" rx="2"/>
+      <text x="420" y="252" font-family="ui-monospace, monospace" font-size="9.5" fill="#333">Interleaved Radiotap PCAP Writer (SD Card)</text>
+    </svg>
+  </div>
+  <figcaption>Figure 1: Dual-core architecture isolating transmission timing from rendering and user interaction.</figcaption>
+</figure>
+
+<h2>03 &middot; hardware targets &amp; multi-band coverage</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Hardware Target</th>
+      <th>Silicon Architecture</th>
+      <th>RF Frequency Bands &amp; Protocol Focus</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>Guition JC3248W535EN</b></td>
+      <td>ESP32-S3 (240 MHz Xtensa, 8MB PSRAM)</td>
+      <td>2.4 GHz 802.11b/g/n &middot; BLE 5.0 &middot; 320&times;480 Capacitive Touch Spectrum</td>
+    </tr>
+    <tr>
+      <td><b>ESP32-C5-DevKitC-1</b></td>
+      <td>ESP32-C5 (240 MHz RISC-V, 4MB PSRAM)</td>
+      <td>Dual-Band <b>2.4 GHz + 5 GHz</b> &middot; WiFi 6 (802.11ax) &middot; 5 GHz Deauth</td>
+    </tr>
+    <tr>
+      <td><b>Seeed XIAO ESP32-C6</b></td>
+      <td>ESP32-C6 (160 MHz RISC-V, 512KB SRAM)</td>
+      <td>2.4 GHz WiFi 6 &middot; <b>Thread 1.3 / Matter / Zigbee (802.15.4)</b> &middot; BLE 5.3</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>04 &middot; interactive spectrum hud &amp; attack console</h2>
+<p>
+  Simulating the S3 Guition live spectrum interface. Click a channel bar to tune the radio, then select an action to observe command dispatch:
+</p>
+
+<div class="spectrum-box">
+  <div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa">
+    <span>wifi-ble-marauder v6.0.1</span>
+    <span id="active-ch">TUNED: CH 6 (2437 MHz)</span>
+    <span>STATUS: IDLE</span>
+  </div>
+
+  <div class="spectrum-bars">
+    <div class="s-bar" style="height:35%" onclick="selectCh(1, -78)">1</div>
+    <div class="s-bar" style="height:55%" onclick="selectCh(2, -65)">2</div>
+    <div class="s-bar" style="height:85%" onclick="selectCh(3, -48)">3</div>
+    <div class="s-bar" style="height:40%" onclick="selectCh(4, -72)">4</div>
+    <div class="s-bar" style="height:25%" onclick="selectCh(5, -84)">5</div>
+    <div class="s-bar active" style="height:95%" onclick="selectCh(6, -42)">6</div>
+    <div class="s-bar" style="height:45%" onclick="selectCh(7, -68)">7</div>
+    <div class="s-bar" style="height:30%" onclick="selectCh(8, -80)">8</div>
+    <div class="s-bar" style="height:50%" onclick="selectCh(9, -64)">9</div>
+    <div class="s-bar" style="height:20%" onclick="selectCh(10, -88)">10</div>
+    <div class="s-bar" style="height:70%" onclick="selectCh(11, -56)">11</div>
+    <div class="s-bar" style="height:15%" onclick="selectCh(12, -92)">12</div>
+    <div class="s-bar" style="height:10%" onclick="selectCh(13, -95)">13</div>
+  </div>
+
+  <div class="spectrum-actions">
+    <button onclick="runAttack('deauth')">[DEAUTH BURST]</button>
+    <button onclick="runAttack('beacon')">[BEACON SPAM]</button>
+    <button onclick="runAttack('ble_apple')">[SOUR APPLE SPAM]</button>
+    <button onclick="runAttack('ble_swift')">[SWIFTPAIR SPAM]</button>
+    <button onclick="runAttack('thread')">[THREAD 1.3 DUMP]</button>
+    <button onclick="runAttack('stop')">[STOP / IDLE]</button>
+  </div>
+
+  <div class="terminal-output" id="term-out">bm> system initialized on core 0 & 1. ready on channel 6.</div>
+</div>
+
+<h2>05 &middot; cli reference</h2>
+<pre><code>bm&gt; scan_ap                     # passive beacon / AP reconnaissance
+bm&gt; scan_raw                    # promiscuous 802.11 capture with Radiotap headers
+bm&gt; attack_deauth -c 6          # 802.11 management deauthentication frame injection
+bm&gt; beacon_spam -s ssid_list    # multi-SSID beacon inundation
+bm&gt; ble_spam -m sour_apple      # iOS ProximityPair popup flooding
+bm&gt; ble_spam -m swiftpair       # Windows 10/11 SwiftPair announcement flood
+bm&gt; thread_dump                 # C6: OpenThread 1.3 neighbor topology enumeration
+bm&gt; pcap_start /sdcard/dump.pcap # record interleaved WiFi + BLE + 802.15.4 frames</code></pre>
+
+</main>
+
+<footer>
+  <p style="font-family:var(--mono);font-size:.8em;color:var(--ink-dim);margin-top:3em;padding-top:1em;border-top:1px solid var(--line)">
+    wifi-ble-marauder &middot; native ESP-IDF 6.0.1 &middot; multi-band security suite &middot; <a href="../">&larr; return to glomar</a>
+  </p>
+</footer>
+
+<script>
+(function(){
+  var h = document.documentElement;
+  function load(k){try{return localStorage.getItem(k)==="1"}catch(e){return false}}
+  function save(k,v){try{localStorage.setItem(k,v?"1":"0")}catch(e){}}
+  [["contrast","pd-contrast"],["inverted","pd-inverted"]].forEach(function(p){if(load(p[1]))h.classList.add(p[0])});
+  document.getElementById("contrast").onclick=function(){save("pd-contrast",h.classList.toggle("contrast"))};
+  document.getElementById("invmode").onclick=function(){save("pd-inverted",h.classList.toggle("inverted"))};
+})();
+
+var curCh = 6;
+
+function selectCh(ch, rssi){
+  curCh = ch;
+  var bars = document.querySelectorAll('.s-bar');
+  bars.forEach(function(b, idx){
+    if(idx + 1 === ch) b.classList.add('active');
+    else b.classList.remove('active');
+  });
+  var freq = 2407 + (ch * 5);
+  document.getElementById('active-ch').textContent = 'TUNED: CH ' + ch + ' (' + freq + ' MHz, ' + rssi + ' dBm)';
+  appendTerm('bm> channel_set ' + ch + ' -> locked at ' + freq + ' MHz (' + rssi + ' dBm)');
+}
+
+function appendTerm(msg){
+  var el = document.getElementById('term-out');
+  el.textContent += '\n' + msg;
+  el.scrollTop = el.scrollHeight;
+}
+
+function runAttack(type){
+  if(type==='deauth'){
+    appendTerm('bm> attack_deauth -c ' + curCh + ' --broadcast');
+    appendTerm('[CORE 0] Injecting 802.11 deauth frames (reason: 7 CLASS_3_FRAME_FROM_NONASSOC_STA)...');
+    appendTerm('[STATS] 128 frames/sec transmitted via esp_wifi_80211_tx.');
+  } else if(type==='beacon'){
+    appendTerm('bm> beacon_spam -c ' + curCh + ' --count 64');
+    appendTerm('[CORE 0] Crafting 64 randomized SSIDs with valid WPA2 IE blocks...');
+  } else if(type==='ble_apple'){
+    appendTerm('bm> ble_spam -m sour_apple');
+    appendTerm('[NIMBLE] Transmitting Apple ProximityPair ActionPackets (AirPods Max, Beats Studio)...');
+  } else if(type==='ble_swift'){
+    appendTerm('bm> ble_spam -m swiftpair');
+    appendTerm('[NIMBLE] Broadcasting Microsoft SwiftPair vendor ID 0x0006...');
+  } else if(type==='thread'){
+    appendTerm('bm> thread_dump');
+    appendTerm('[802.15.4] C6 radio sniffing Thread 1.3 mesh channel 15...');
+    appendTerm('[TOPOLOGY] Discovered Leader RLOC16: 0x4800, Router count: 3.');
+  } else if(type==='stop'){
+    appendTerm('bm> stop');
+    appendTerm('[SYSTEM] All attack tasks stopped on Core 0. Radios returned to passive promiscuous mode.');
+  }
+}
+</script>
+</body>
+</html>
