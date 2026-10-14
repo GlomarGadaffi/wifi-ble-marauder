@@ -106,7 +106,10 @@ bm> deauth -b aa:bb:cc:dd:ee:ff -c 6 -n 20   # targeted deauth by BSSID
 bm> beacon -s "FreeWiFi" -c 6  # beacon spam fixed SSID
 bm> beacon -c 6                 # random SSID beacon spam
 bm> eapol -c 6                  # EAPOL bad-message flood
-bm> portal -s "Airport WiFi"   # evil captive portal
+bm> portal -s "Airport WiFi"   # evil captive portal (download PCAP via /pcap)
+bm> pcap_start capture.pcap     # start radiotap PCAP frame capture to SD/SPIFFS
+bm> pcap_status                 # show storage mount, recording state & frame count
+bm> pcap_stop                   # stop PCAP recording and flush file
 bm> ble_scan                    # passive BLE scan
 bm> sour_apple                  # Apple proximity popup attack
 bm> swiftpair                   # Microsoft Swift Pair spam
@@ -173,8 +176,8 @@ idf.py -p COM3 flash monitor
 
 - [x] Phase 2: WiFi attack core (deauth, beacon, EAPOL, evil portal), C5 5GHz
 - [x] Phase 2: channel sweep CLI command with configurable dwell + band filter
-- [x] **Phase 4: Guition JC3248W535EN display + RSSI spectrum visualizer** ← active
-- [ ] Phase 2: PCAP capture with radiotap headers to SD card
+- [x] Phase 2: PCAP capture with radiotap headers to SD card (SPIFFS fallback) + HTTP download
+- [x] **Phase 4: Guition JC3248W535EN display + RSSI spectrum visualizer**
 - [ ] Phase 3: Thread neighbor scan (`esp_openthread` / `otLinkActiveScan`)
 - [ ] Phase 3: Matter commissioning sniffer (mDNS + PAKE intercept)
 - [ ] Phase 3: Zigbee passive channel scan

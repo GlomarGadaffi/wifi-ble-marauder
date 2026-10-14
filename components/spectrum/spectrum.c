@@ -6,6 +6,7 @@
  * spectrum_task() is the FreeRTOS display loop running on core 1.
  */
 #include "spectrum.h"
+#include "pcap.h"
 #include "display.h"
 #include "board.h"
 #include "ui.h"
@@ -108,7 +109,14 @@ static void render_header(ui_t *ui, const char *mode)
 
     char chbuf[10];
     snprintf(chbuf, sizeof(chbuf), "CH:%d", s_active_ch);
-    ui_text(ui, 192, 8, chbuf, 2, ui_rgb(220, 220, 80));
+    ui_text(ui, 185, 8, chbuf, 2, ui_rgb(220, 220, 80));
+
+    if (pcap_is_active()) {
+        ui_rect(ui, 255, 12, 8, 8, ui_rgb(255, 30, 30));
+        ui_text(ui, 268, 10, "REC", 1, ui_rgb(255, 60, 60));
+    } else if (pcap_is_mounted()) {
+        ui_text(ui, 260, 10, pcap_is_sd() ? "SD" : "MEM", 1, ui_rgb(80, 180, 100));
+    }
 
     ui_text(ui, 6, 26, mode, 1, ui_rgb(120, 130, 150));
 }
@@ -171,6 +179,16 @@ static void render_info_panel(ui_t *ui)
 {
     ui_rect(ui, 0, INFO_Y, LCD_H_RES, INFO_H, ui_rgb(14, 17, 28));
     ui_text(ui, 6, INFO_Y + 4, "Active signals:", 1, ui_rgb(100, 110, 140));
+
+    char pcap_info[32];
+    if (pcap_is_active()) {
+        snprintf(pcap_info, sizeof(pcap_info), "%lu pkts [REC]", (unsigned long)pcap_frame_count());
+        ui_text(ui, LCD_H_RES - 110, INFO_Y + 4, pcap_info, 1, ui_rgb(255, 80, 80));
+    } else {
+        snprintf(pcap_info, sizeof(pcap_info), "%s",
+                 pcap_is_mounted() ? (pcap_is_sd() ? "microSD" : "SPIFFS") : "no card");
+        ui_text(ui, LCD_H_RES - 60, INFO_Y + 4, pcap_info, 1, ui_rgb(90, 110, 130));
+    }
 
     int count = (s_ap_head < AP_LIST_MAX) ? s_ap_head : AP_LIST_MAX;
     for (int i = 0; i < count; i++) {
@@ -244,6 +262,7 @@ static void handle_touch(uint16_t tx, uint16_t ty)
                 break;
             }
             case 3:   /* STOP */
+                pcap_close();
                 wifi_attack_stop_promiscuous();
                 wifi_attack_deinit();
                 ble_attack_stop_scan();

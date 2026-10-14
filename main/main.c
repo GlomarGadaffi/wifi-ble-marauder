@@ -7,6 +7,7 @@
 
 #include "wifi_attack.h"
 #include "ble_attack.h"
+#include "pcap.h"
 #include "cli.h"
 
 /* Board selection — override via CMake define or sdkconfig */
@@ -62,6 +63,8 @@ void app_main(void)
     ESP_ERROR_CHECK(bm_display_init(&s_display));
     xTaskCreatePinnedToCore(spectrum_task, "spectrum", 12288, &s_display, 4, NULL, 1);
 #endif
+
+    pcap_mount_auto();
 
     cli_init();
     xTaskCreatePinnedToCore(cli_task, "cli", 8192, NULL, 5, NULL, 1);

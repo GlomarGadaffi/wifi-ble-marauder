@@ -1,4 +1,5 @@
 #include "wifi_attack.h"
+#include "pcap.h"
 #include "esp_wifi.h"
 #include "esp_log.h"
 #include "esp_random.h"
@@ -26,7 +27,9 @@ const uint8_t dual_band_channel_count = sizeof(dual_band_channels);
 
 /* ── Module state ───────────────────────────────────────────────────── */
 static bool     s_initialized  = false;
+#if CONFIG_ESP_WIFI_ENABLE_5G
 static bool     s_5ghz_enabled = false;
+#endif
 static uint32_t s_tx_count     = 0;
 static uint32_t s_rx_count     = 0;
 static uint8_t  s_channel      = 1;
@@ -348,6 +351,11 @@ void wifi_attack_beacon_sniffer_cb(void *buf, wifi_promiscuous_pkt_type_t type)
            bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5],
            ssid);
 
+    if (pcap_is_active()) {
+        pcap_write_frame(pkt->payload, pkt->rx_ctrl.sig_len, pkt->rx_ctrl.sig_len,
+                         rssi, channel);
+    }
+
     if (s_frame_hook) s_frame_hook(channel, rssi);
 }
 
@@ -357,6 +365,11 @@ void wifi_attack_ap_sniffer_cb(void *buf, wifi_promiscuous_pkt_type_t type)
 
     const wifi_promiscuous_pkt_t *pkt = (wifi_promiscuous_pkt_t *)buf;
     s_rx_count++;
+
+    if (pcap_is_active()) {
+        pcap_write_frame(pkt->payload, pkt->rx_ctrl.sig_len, pkt->rx_ctrl.sig_len,
+                         pkt->rx_ctrl.rssi, pkt->rx_ctrl.channel);
+    }
 
     printf("FRAME  type=%d  ch=%02d  rssi=%4d  len=%d\n",
            type, pkt->rx_ctrl.channel, pkt->rx_ctrl.rssi,

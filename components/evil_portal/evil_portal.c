@@ -1,4 +1,5 @@
 #include "evil_portal.h"
+#include "pcap.h"
 #include "esp_wifi.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
@@ -17,9 +18,12 @@ static uint32_t       s_clients = 0;
 
 static const char s_captive_page[] =
     "<!DOCTYPE html><html><head>"
-    "<meta http-equiv='refresh' content='0;url=http://binary-mist.local/portal'>"
-    "<title>Portal</title></head><body>"
-    "<p>Connecting...</p>"
+    "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+    "<title>binary-mist portal</title></head>"
+    "<body style='font-family:sans-serif;background:#111;color:#eee;text-align:center;padding:20px;'>"
+    "<h2>binary-mist access point</h2>"
+    "<p>Connected successfully.</p>"
+    "<p style='margin-top:20px;'><a href='/pcap' style='color:#0af;font-size:18px;'>Download PCAP Capture (.pcap)</a></p>"
     "</body></html>";
 
 static esp_err_t root_handler(httpd_req_t *req)
@@ -37,6 +41,40 @@ static esp_err_t portal_handler(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, s_captive_page, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+static esp_err_t pcap_download_handler(httpd_req_t *req)
+{
+    const char *path = pcap_get_active_file();
+    FILE *f = NULL;
+    if (path && path[0]) {
+        f = fopen(path, "rb");
+    }
+    if (!f) {
+        f = fopen("/sdcard/capture.pcap", "rb");
+    }
+    if (!f) {
+        f = fopen("/spiffs/capture.pcap", "rb");
+    }
+    if (!f) {
+        httpd_resp_send_404(req);
+        return ESP_FAIL;
+    }
+
+    httpd_resp_set_type(req, "application/vnd.tcpdump.pcap");
+    httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"capture.pcap\"");
+
+    char chunk[1024];
+    size_t r;
+    while ((r = fread(chunk, 1, sizeof(chunk), f)) > 0) {
+        if (httpd_resp_send_chunk(req, chunk, r) != ESP_OK) {
+            fclose(f);
+            return ESP_FAIL;
+        }
+    }
+    fclose(f);
+    httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
 }
 
@@ -107,8 +145,10 @@ esp_err_t evil_portal_start(const char *ssid, const char *redirect_url)
 
     httpd_uri_t root = { .uri = "/",       .method = HTTP_GET, .handler = root_handler };
     httpd_uri_t port = { .uri = "/portal", .method = HTTP_GET, .handler = portal_handler };
+    httpd_uri_t pcap = { .uri = "/pcap",   .method = HTTP_GET, .handler = pcap_download_handler };
     httpd_register_uri_handler(s_httpd, &root);
     httpd_register_uri_handler(s_httpd, &port);
+    httpd_register_uri_handler(s_httpd, &pcap);
 
     /* DNS redirect task */
     xTaskCreate(dns_redirect_task, "ep_dns", 3072, NULL, 5, NULL);

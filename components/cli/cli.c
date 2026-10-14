@@ -145,11 +145,68 @@ static int cmd_portal(int argc, char **argv)
 static int cmd_stop(int argc, char **argv)
 {
     (void)argc; (void)argv;
+    pcap_close();
     wifi_attack_stop_promiscuous();
     wifi_attack_deinit();
     evil_portal_stop();
     ble_attack_stop_scan();
-    printf("All attacks stopped\n");
+    printf("All attacks stopped (PCAP closed if active)\n");
+    return 0;
+}
+
+/* ── PCAP commands ───────────────────────────────────────────────────── */
+static struct {
+    struct arg_str *filename;
+    struct arg_end *end;
+} pcap_start_args;
+
+static int cmd_pcap_start(int argc, char **argv)
+{
+    int nerrors = arg_parse(argc, argv, (void **)&pcap_start_args);
+    if (nerrors) { arg_print_errors(stdout, pcap_start_args.end, argv[0]); return 1; }
+
+    const char *fn = pcap_start_args.filename->count ? pcap_start_args.filename->sval[0] : "capture.pcap";
+    wifi_attack_init();
+    esp_err_t err = pcap_open(fn);
+    if (err != ESP_OK) {
+        printf("Failed to start PCAP: %s\n", esp_err_to_name(err));
+        return 1;
+    }
+    wifi_attack_start_promiscuous(wifi_attack_beacon_sniffer_cb);
+    printf("PCAP recording -> %s (%s, sniffer active)\n",
+           pcap_get_active_file(),
+           pcap_is_sd() ? "microSD" : "SPIFFS");
+    return 0;
+}
+
+static int cmd_pcap_stop(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    if (!pcap_is_active()) {
+        printf("No active PCAP recording\n");
+        return 0;
+    }
+    uint32_t cnt = pcap_frame_count();
+    char file[128];
+    strncpy(file, pcap_get_active_file(), sizeof(file) - 1);
+    file[sizeof(file) - 1] = '\0';
+    pcap_close();
+    printf("PCAP stopped: %lu frames saved to %s\n", (unsigned long)cnt, file);
+    return 0;
+}
+
+static int cmd_pcap_status(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    printf("PCAP Status:\n");
+    printf("  Storage:  %s (%s)\n",
+           pcap_is_mounted() ? (pcap_is_sd() ? "microSD" : "SPIFFS") : "not mounted",
+           pcap_get_mount_point());
+    printf("  State:    %s\n", pcap_is_active() ? "RECORDING" : "IDLE");
+    if (pcap_is_active()) {
+        printf("  File:     %s\n", pcap_get_active_file());
+        printf("  Frames:   %lu\n", (unsigned long)pcap_frame_count());
+    }
     return 0;
 }
 
@@ -316,7 +373,16 @@ esp_err_t cli_init(void)
                              .func=cmd_portal, .argtable=&portal_args };
     esp_console_cmd_register(&p);
 
+    /* pcap_start */
+    pcap_start_args.filename = arg_str0(NULL, NULL, "<file>", "Output PCAP filename (default capture.pcap)");
+    pcap_start_args.end      = arg_end(1);
+    esp_console_cmd_t ps = { .command="pcap_start", .help="Start PCAP radiotap frame capture",
+                             .func=cmd_pcap_start, .argtable=&pcap_start_args };
+    esp_console_cmd_register(&ps);
+
     esp_console_cmd_t cmds[] = {
+        { .command="pcap_stop",    .help="Stop PCAP capture and save file",   .func=cmd_pcap_stop },
+        { .command="pcap_status",  .help="Show PCAP capture/storage status",  .func=cmd_pcap_status },
         { .command="scan_ap",      .help="Passive AP/beacon scan",   .func=cmd_scan_ap },
         { .command="scan_raw",     .help="Raw promiscuous capture",   .func=cmd_scan_raw },
         { .command="stop",         .help="Stop all attacks",          .func=cmd_stop },
@@ -332,7 +398,7 @@ esp_err_t cli_init(void)
         esp_console_cmd_register(&cmds[i]);
 
     ESP_LOGI(TAG, "CLI initialized (%zu commands registered)",
-             sizeof(cmds)/sizeof(cmds[0]) + 5);
+             sizeof(cmds)/sizeof(cmds[0]) + 6);
     return ESP_OK;
 }
 
